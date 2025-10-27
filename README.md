@@ -5,12 +5,13 @@ A simple Flask-based web application for organizing Secret Santa gift exchanges.
 ## Features
 
 - Participant registration with name, email, and gift preferences
-- Automatic Secret Santa matching (ensures no one gets themselves)
+- Automatic Secret Santa matching (single-cycle algorithm - everyone in one connected chain)
 - Email notifications to participants with their match
 - Admin dashboard with password protection
 - Reveal page to track gift exchanges on the big day
 - SQLite database for simplicity (perfect for 10-15 people)
 - Dockerized for easy deployment
+- **Security**: CSRF protection, password hashing, input validation, rate limiting
 
 ## Project Structure
 
@@ -32,6 +33,15 @@ secretsantabot/
 ├── Dockerfile              # Docker image definition
 ├── pyproject.toml          # Python dependencies
 ├── .env.example            # Environment variables template
+├── dev-tools/              # Development utilities
+│   ├── generate_password_hash.py  # Generate admin password hash
+│   ├── seed_database.py    # Seed database with test data
+│   ├── seed_database.sql   # SQL for test data
+│   └── README.md           # Dev tools documentation
+├── docs/                   # Documentation
+│   ├── SECURITY.md         # Security documentation
+│   ├── CHANGELOG_SECURITY.md  # Security changes log
+│   └── QUICK_START.md      # Quick start guide
 └── README.md               # This file
 ```
 
@@ -42,20 +52,32 @@ secretsantabot/
 ```bash
 # Copy the environment template
 cp .env.example .env
+```
 
-# Edit .env with your settings
-nano .env
+**IMPORTANT**: Generate secure credentials before editing `.env`:
+
+```bash
+# Generate a secure secret key
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# Generate admin password hash
+python dev-tools/generate_password_hash.py
 ```
 
 Configure the following in `.env`:
-- `SECRET_KEY`: A random secret key for Flask sessions
-- `ADMIN_PASSWORD`: Password to access the admin dashboard
-- Email settings (SMTP_SERVER, SMTP_USERNAME, SMTP_PASSWORD, FROM_EMAIL)
+- `SECRET_KEY`: The random key generated above
+- `ADMIN_PASSWORD_HASH`: The password hash generated above (NOT plain text!)
+- `SMTP_SERVER`: smtp.office365.com (or your email provider)
+- `SMTP_USERNAME`: Your full Office 365 email address
+- `SMTP_PASSWORD`: Your Office 365 password
+- `SESSION_COOKIE_SECURE`: Set to True when using HTTPS
 
-For Gmail, you'll need to use an App Password:
-1. Go to https://myaccount.google.com/apppasswords
-2. Generate an app password
-3. Use that password in `SMTP_PASSWORD`
+**For Office 365**, ensure SMTP AUTH is enabled:
+1. Go to Microsoft 365 admin center
+2. Users > Active users > Select user > Mail > Manage email apps
+3. Check "Authenticated SMTP"
+
+**See [docs/SECURITY.md](docs/SECURITY.md) for detailed security setup instructions.**
 
 ### 2. Run with Docker
 

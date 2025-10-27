@@ -5,7 +5,7 @@
 {% block content %}
 <h1>Admin Dashboard</h1>
 
-<div style="margin: 20px 0;">
+<article>
     <h2>Participants ({{ participants|length }})</h2>
 
     {% if participants %}
@@ -27,6 +27,7 @@
                     <td>
                         {% if not matches_created %}
                         <form method="POST" action="{{ url_for('main.delete_participant', participant_id=participant.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
                         </form>
                         {% endif %}
@@ -38,13 +39,14 @@
     {% else %}
         <p>No participants registered yet.</p>
     {% endif %}
-</div>
+</article>
 
-<div style="margin: 30px 0;">
+<article>
     <h2>Matching Controls</h2>
 
     {% if not matches_created %}
         <form method="POST" action="{{ url_for('main.create_matches') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button type="submit" class="btn btn-success"
                     onclick="return confirm('This will create Secret Santa matches. Continue?')"
                     {% if participants|length < 2 %}disabled{% endif %}>
@@ -76,6 +78,7 @@
 
         <div style="margin-top: 20px;">
             <form method="POST" action="{{ url_for('main.send_emails') }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" class="btn btn-success"
                         onclick="return confirm('This will send emails to all participants who haven\'t received one yet. Continue?')">
                     Send Notification Emails
@@ -83,12 +86,14 @@
             </form>
         </div>
     {% endif %}
-</div>
+</article>
 
-<div style="margin: 30px 0; padding: 20px; background: #fff3cd; border-radius: 5px;">
-    <h2>Danger Zone</h2>
+<div class="danger-zone">
+    <h2>⚠️ Danger Zone</h2>
+    <p>This will permanently delete all participants, matches, and settings. This action cannot be undone!</p>
     <form method="POST" action="{{ url_for('main.reset_all') }}" style="display: inline;">
-        <button type="submit" class="btn btn-danger"
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn-danger"
                 onclick="return confirm('This will delete ALL participants and matches. This cannot be undone! Are you absolutely sure?')">
             Reset Everything
         </button>

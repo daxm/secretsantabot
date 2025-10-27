@@ -31,6 +31,7 @@
                 </td>
                 <td>
                     <form method="POST" action="{{ url_for('main.toggle_reveal', match_id=match.id) }}" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn">
                             {% if match.revealed %}Undo{% else %}Mark as Revealed{% endif %}
                         </button>

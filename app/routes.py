@@ -1,11 +1,16 @@
 import random
 import smtplib
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from app import db
+from werkzeug.security import check_password_hash
+from email_validator import validate_email, EmailNotValidError
+from app import db, limiter
 from app.models import Participant, Match, Settings
+
+logger = logging.getLogger(__name__)
 
 main = Blueprint('main', __name__)
 
@@ -27,15 +32,41 @@ def index():
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        gift_preference = request.form.get('gift_preference')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        gift_preference = request.form.get('gift_preference', '').strip()
+
+        # Validate name
+        if not name:
+            flash('Name is required!', 'error')
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
+
+        if len(name) > 100:
+            flash('Name is too long (maximum 100 characters)!', 'error')
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
+
+        # Validate email
+        if not email:
+            flash('Email is required!', 'error')
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
+
+        try:
+            valid_email = validate_email(email, check_deliverability=False)
+            email = valid_email.normalized
+        except EmailNotValidError as e:
+            flash(f'Invalid email address: {str(e)}', 'error')
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
+
+        # Validate gift preference length
+        if len(gift_preference) > 500:
+            flash('Gift preferences are too long (maximum 500 characters)!', 'error')
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
 
         # Check if email already exists
         existing = Participant.query.filter_by(email=email).first()
         if existing:
             flash('This email is already registered!', 'error')
-            return redirect(url_for('main.register'))
+            return render_template('register.html', name=name, email=email, gift_preference=gift_preference)
 
         # Create new participant
         participant = Participant(
@@ -46,6 +77,7 @@ def register():
         db.session.add(participant)
         db.session.commit()
 
+        logger.info(f'New participant registered: {email}')
         flash('Registration successful! You will receive an email with your Secret Santa match.', 'success')
         return redirect(url_for('main.index'))
 
@@ -53,13 +85,24 @@ def register():
 
 
 @main.route('/admin/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def admin_login():
     if request.method == 'POST':
-        password = request.form.get('password')
-        if password == current_app.config['ADMIN_PASSWORD']:
+        password = request.form.get('password', '')
+        password_hash = current_app.config['ADMIN_PASSWORD_HASH']
+
+        if not password_hash:
+            flash('Admin password not configured. Please set ADMIN_PASSWORD_HASH in .env', 'error')
+            logger.error('Admin login attempted but ADMIN_PASSWORD_HASH not configured')
+            return render_template('admin_login.html')
+
+        if check_password_hash(password_hash, password):
             session['admin_authenticated'] = True
+            session.permanent = True
+            logger.info('Admin login successful')
             return redirect(url_for('main.admin_dashboard'))
         else:
+            logger.warning(f'Failed admin login attempt from {request.remote_addr}')
             flash('Invalid password', 'error')
 
     return render_template('admin_login.html')
@@ -99,34 +142,39 @@ def create_matches():
         flash('Need at least 2 participants to create matches!', 'error')
         return redirect(url_for('main.admin_dashboard'))
 
-    # Create Secret Santa matches
-    givers = participants.copy()
-    receivers = participants.copy()
+    # Create Secret Santa matches using a single-cycle algorithm
+    # This ensures everyone is in one connected chain, preventing small loops
+    # (e.g., prevents A->B, B->A, C->D, D->C pattern)
 
-    # Shuffle until no one gets themselves
     max_attempts = 100
     for attempt in range(max_attempts):
-        random.shuffle(receivers)
+        # Shuffle participants to get random order
+        shuffled = participants.copy()
+        random.shuffle(shuffled)
 
-        # Check if valid (no one gets themselves)
-        valid = all(givers[i].id != receivers[i].id for i in range(len(givers)))
+        # Create a single cycle: each person gives to the next, last gives to first
+        # This guarantees one complete loop through all participants
+        matches_list = []
+        for i in range(len(shuffled)):
+            giver = shuffled[i]
+            receiver = shuffled[(i + 1) % len(shuffled)]  # Next person, wrapping around
+            matches_list.append((giver.id, receiver.id))
+
+        # Verify no one gives to themselves (should be impossible with 2+ people, but double-check)
+        valid = all(giver_id != receiver_id for giver_id, receiver_id in matches_list)
 
         if valid:
+            # Create match records
+            for giver_id, receiver_id in matches_list:
+                match = Match(giver_id=giver_id, receiver_id=receiver_id)
+                db.session.add(match)
             break
     else:
         flash('Could not create valid matches. Try again!', 'error')
         return redirect(url_for('main.admin_dashboard'))
 
-    # Create match records
-    for i in range(len(givers)):
-        match = Match(
-            giver_id=givers[i].id,
-            receiver_id=receivers[i].id
-        )
-        db.session.add(match)
-
     db.session.commit()
-    flash(f'Successfully created {len(givers)} Secret Santa matches!', 'success')
+    flash(f'Successfully created {len(participants)} Secret Santa matches in one connected chain!', 'success')
     return redirect(url_for('main.admin_dashboard'))
 
 
@@ -148,18 +196,23 @@ def send_emails():
             giver = match.giver
             receiver = match.receiver
 
+            # Sanitize names and preferences to prevent header injection
+            # Remove newlines and other control characters
+            giver_name = ' '.join(giver.name.split())
+            receiver_name = ' '.join(receiver.name.split())
+            gift_pref = ' '.join((receiver.gift_preference or 'No preference specified').split())
+
             # Create email
             msg = MIMEMultipart()
-            msg['From'] = current_app.config['FROM_EMAIL']
+            msg['From'] = current_app.config['SMTP_USERNAME']
             msg['To'] = giver.email
             msg['Subject'] = 'Your Secret Santa Match!'
 
-            body = f"""
-Hello {giver.name}!
+            body = f"""Hello {giver_name}!
 
-You are the Secret Santa for: {receiver.name}
+You are the Secret Santa for: {receiver_name}
 
-Their gift preference/suggestion: {receiver.gift_preference or 'No preference specified'}
+Their gift preference/suggestion: {gift_pref}
 
 Happy gifting!
 
@@ -180,21 +233,29 @@ Secret Santa Bot
             db.session.commit()
             sent_count += 1
 
+        except smtplib.SMTPAuthenticationError as e:
+            error_count += 1
+            logger.error(f"SMTP authentication failed when sending to {giver.email}: {e}")
+            if not first_error:
+                first_error = "SMTP authentication failed. Check SMTP_USERNAME and SMTP_PASSWORD in .env"
+        except smtplib.SMTPException as e:
+            error_count += 1
+            error_msg = str(e)
+            logger.error(f"SMTP error sending email to {giver.email}: {error_msg}")
+            if not first_error:
+                if 'Connection refused' in error_msg:
+                    first_error = "Connection refused. Check SMTP_SERVER and SMTP_PORT in .env"
+                elif 'timed out' in error_msg:
+                    first_error = "Connection timeout. Check network/firewall settings"
+                else:
+                    first_error = f"SMTP error: {error_msg}"
         except Exception as e:
             error_count += 1
             error_msg = str(e)
-            print(f"Error sending email to {giver.email}: {error_msg}")
-
-            # Store first error for user feedback
+            logger.error(f"Unexpected error sending email to {giver.email}: {error_msg}")
             if not first_error:
                 if 'Name or service not known' in error_msg:
-                    first_error = f"Cannot resolve SMTP server hostname. Check SMTP_SERVER in .env"
-                elif 'Authentication failed' in error_msg or 'Invalid credentials' in error_msg:
-                    first_error = f"SMTP authentication failed. Check SMTP_USERNAME and SMTP_PASSWORD in .env"
-                elif 'Connection refused' in error_msg:
-                    first_error = f"Connection refused. Check SMTP_SERVER and SMTP_PORT in .env"
-                elif 'timed out' in error_msg:
-                    first_error = f"Connection timeout. Check network/firewall settings"
+                    first_error = "Cannot resolve SMTP server hostname. Check SMTP_SERVER in .env"
                 else:
                     first_error = f"Error: {error_msg}"
 

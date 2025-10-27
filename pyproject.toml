@@ -6,10 +6,18 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0.0",
     "flask-sqlalchemy>=3.1.1",
+    "flask-wtf>=1.2.0",
     "python-dotenv>=1.0.0",
     "email-validator>=2.1.0",
+    "flask-limiter>=3.5.0",
+    "gunicorn>=21.2.0",
 ]
 
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["data*", "dev-tools*", "docs*"]

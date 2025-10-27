@@ -6,20 +6,21 @@
 <h1>Register for Secret Santa</h1>
 
 <form method="POST" action="{{ url_for('main.register') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="form-group">
         <label for="name">Name *</label>
-        <input type="text" id="name" name="name" required>
+        <input type="text" id="name" name="name" value="{{ name or '' }}" required>
     </div>
 
     <div class="form-group">
         <label for="email">Email Address *</label>
-        <input type="email" id="email" name="email" required>
+        <input type="email" id="email" name="email" value="{{ email or '' }}" required>
     </div>
 
     <div class="form-group">
         <label for="gift_preference">Gift Preferences / Suggestions</label>
         <textarea id="gift_preference" name="gift_preference"
-                  placeholder="Let your Secret Santa know what kind of gifts you'd like! (Optional)"></textarea>
+                  placeholder="Let your Secret Santa know what kind of gifts you'd like! (Optional)">{{ gift_preference or '' }}</textarea>
     </div>
 
     <button type="submit" class="btn">Register</button>

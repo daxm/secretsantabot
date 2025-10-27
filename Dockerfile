@@ -19,5 +19,5 @@ EXPOSE 5000
 ENV FLASK_APP=app
 ENV PYTHONUNBUFFERED=1
 
-# Run the application
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+# Run the application with Gunicorn (production WSGI server)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:create_app()"]
