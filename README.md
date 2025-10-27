@@ -147,13 +147,16 @@ Database file is stored in `data/secretsanta.db`
 ### Emails not sending?
 
 - Check your SMTP settings in `.env`
-- For Gmail, ensure you're using an App Password, not your regular password
-- Check that 2FA is enabled on your Google account (required for App Passwords)
+- For Office 365, ensure SMTP AUTH is enabled in Microsoft 365 admin center
+- Verify SMTP_USERNAME is your full email address
 - Verify SMTP_PORT is 587 for TLS
+- Check the Docker logs for specific error messages: `docker-compose logs -f`
 
 ### Can't access admin dashboard?
 
-- Verify ADMIN_PASSWORD in `.env` matches what you're entering
+- Verify ADMIN_PASSWORD_HASH is set correctly in `.env`
+- Regenerate the hash with `python dev-tools/generate_password_hash.py`
+- Remember to use the Docker-escaped version (with `$$`) if using Docker Compose
 - Try restarting the Docker container after changing `.env`
 
 ### Need to start over?
