@@ -16,7 +16,8 @@ ENV/
 
 # Database
 *.db
-data/
+data/*
+!data/.gitkeep
 
 # Flask
 instance/
