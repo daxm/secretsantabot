@@ -163,11 +163,23 @@ Database file is stored in `data/secretsanta.db`
 
 ## Security Notes
 
-- The admin password is stored in plain text in `.env` - suitable for small private events
-- Email credentials are stored in `.env` - keep this file secure
-- Sessions use Flask's session system with a secret key
-- This is designed for small, trusted groups - not production security
+This application has been hardened with multiple security features:
+- CSRF protection on all forms
+- Password hashing (scrypt) for admin authentication
+- Input validation and sanitization
+- Rate limiting on login attempts
+- Secure session configuration
+- Email header injection prevention
+
+See [docs/SECURITY.md](docs/SECURITY.md) for detailed security information.
+
+## Contributors
+
+- **Dax Mickelson** - Original author and maintainer
+- **Claude (Anthropic)** - AI pair programmer - Security hardening, architecture improvements, and feature development
 
 ## License
 
 MIT License - feel free to use and modify as needed!
+
+See [LICENSE](LICENSE) for full license text.
