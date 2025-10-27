@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    environment:
+      - FLASK_APP=app
+      - FLASK_ENV=development
+    env_file:
+      - .env
+    restart: unless-stopped

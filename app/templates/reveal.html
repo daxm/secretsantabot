@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Reveal Day - Secret Santa Bot{% endblock %}
+
+{% block content %}
+<h1>Secret Santa Reveal</h1>
+
+<p style="margin-bottom: 20px;">Check off matches as gifts are exchanged!</p>
+
+{% if matches %}
+    <table>
+        <thead>
+            <tr>
+                <th>Giver</th>
+                <th>Receiver</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for match in matches %}
+            <tr style="{% if match.revealed %}opacity: 0.6; text-decoration: line-through;{% endif %}">
+                <td>{{ match.giver }}</td>
+                <td>{{ match.receiver }}</td>
+                <td>
+                    {% if match.revealed %}
+                        <span style="color: green; font-weight: bold;">Revealed</span>
+                    {% else %}
+                        <span style="color: orange; font-weight: bold;">Pending</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="POST" action="{{ url_for('main.toggle_reveal', match_id=match.id) }}" style="display: inline;">
+                        <button type="submit" class="btn">
+                            {% if match.revealed %}Undo{% else %}Mark as Revealed{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 5px;">
+        <h3>Progress: {{ matches|selectattr('revealed')|list|length }} / {{ matches|length }} revealed</h3>
+    </div>
+{% else %}
+    <p>No matches created yet. Visit the admin dashboard to create matches.</p>
+{% endif %}
+{% endblock %}

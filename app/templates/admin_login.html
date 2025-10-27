@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login - Secret Santa Bot{% endblock %}
+
+{% block content %}
+<h1>Admin Login</h1>
+
+<form method="POST" action="{{ url_for('main.admin_login') }}">
+    <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+    </div>
+
+    <button type="submit" class="btn">Login</button>
+</form>
+{% endblock %}

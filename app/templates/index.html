@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Secret Santa Bot - Home{% endblock %}
+
+{% block content %}
+<h1>Welcome to Secret Santa Bot!</h1>
+
+<div style="margin: 30px 0;">
+    <h2>How it works:</h2>
+    <ol style="line-height: 2; margin-left: 20px;">
+        <li>Register by providing your name, email, and gift preferences</li>
+        <li>Wait for everyone to register</li>
+        <li>The admin will create Secret Santa matches</li>
+        <li>You'll receive an email with your match's name and gift preferences</li>
+        <li>Buy a gift for your match!</li>
+        <li>On reveal day, we'll check off the matches as gifts are exchanged</li>
+    </ol>
+</div>
+
+<div style="margin-top: 30px;">
+    <a href="{{ url_for('main.register') }}" class="btn">Register Now</a>
+</div>
+{% endblock %}
