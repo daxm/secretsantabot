@@ -141,6 +141,7 @@ def send_emails():
 
     sent_count = 0
     error_count = 0
+    first_error = None
 
     for match in matches:
         try:
@@ -181,12 +182,26 @@ Secret Santa Bot
 
         except Exception as e:
             error_count += 1
-            print(f"Error sending email to {giver.email}: {str(e)}")
+            error_msg = str(e)
+            print(f"Error sending email to {giver.email}: {error_msg}")
+
+            # Store first error for user feedback
+            if not first_error:
+                if 'Name or service not known' in error_msg:
+                    first_error = f"Cannot resolve SMTP server hostname. Check SMTP_SERVER in .env"
+                elif 'Authentication failed' in error_msg or 'Invalid credentials' in error_msg:
+                    first_error = f"SMTP authentication failed. Check SMTP_USERNAME and SMTP_PASSWORD in .env"
+                elif 'Connection refused' in error_msg:
+                    first_error = f"Connection refused. Check SMTP_SERVER and SMTP_PORT in .env"
+                elif 'timed out' in error_msg:
+                    first_error = f"Connection timeout. Check network/firewall settings"
+                else:
+                    first_error = f"Error: {error_msg}"
 
     if sent_count > 0:
         flash(f'Successfully sent {sent_count} emails!', 'success')
     if error_count > 0:
-        flash(f'Failed to send {error_count} emails. Check logs.', 'error')
+        flash(f'Failed to send {error_count} emails. {first_error}', 'error')
 
     return redirect(url_for('main.admin_dashboard'))
 

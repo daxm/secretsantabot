@@ -12,7 +12,7 @@ def create_app():
 
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/secretsanta.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/data/secretsanta.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['ADMIN_PASSWORD'] = os.getenv('ADMIN_PASSWORD', 'admin')
 
