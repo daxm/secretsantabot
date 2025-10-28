@@ -22,6 +22,8 @@ A Flask-based web application for organizing Secret Santa gift exchanges. Partic
 - **Email**: Office 365 SMTP with authentication
 - **Frontend**: Pico CSS v2, semantic HTML, no JavaScript
 - **Deployment**: Docker + Gunicorn
+- **Code Quality**: Black (formatter), Ruff (linter)
+- **Versioning**: `<major>.<yyyymmdd>.<patch>` format
 
 ## Project Structure
 
@@ -52,14 +54,17 @@ secretsantabot/
 ├── docs/                        # Project documentation
 │   ├── SECURITY.md              # Security features & setup guide
 │   ├── CHANGELOG_SECURITY.md    # Security improvements log
-│   └── QUICK_START.md           # Quick setup guide
+│   ├── QUICK_START.md           # Quick setup guide
+│   ├── VERSIONING.md            # Version scheme documentation
+│   └── DEVELOPMENT.md           # Dev tools and workflow guide
 │
 ├── .env                         # Environment variables (NOT in git)
 ├── .env.example                 # Template for .env
 ├── .gitignore                   # Git exclusions
 ├── docker-compose.yml           # Docker Compose configuration
 ├── Dockerfile                   # Container definition with Gunicorn
-├── pyproject.toml               # Python dependencies
+├── pyproject.toml               # Python dependencies & dev tools config
+├── VERSION                      # Current version (<major>.<yyyymmdd>.<patch>)
 ├── README.md                    # Main documentation
 └── CLAUDE.md                    # This file
 ```
@@ -231,7 +236,33 @@ sqlite3 data/secretsanta.db
 
 ## Recent Changes
 
-### Latest Updates (2025-10-27)
+### Latest Updates (2025-10-28)
+1. **Three-Phase Workflow**
+   - Registration Open → Matching Phase → Locked (after emails sent)
+   - Can add participants and re-match until emails are sent
+   - Registration auto-locks after emails sent
+   - Admin dashboard shows current phase with color coding
+
+2. **Thank You Email Feature**
+   - When match marked as "revealed", receiver gets email
+   - Email reveals their Secret Santa and encourages thank you
+   - Includes giver's email address for easy response
+   - `thank_you_email_sent` field prevents duplicate emails
+
+3. **Code Quality & Versioning**
+   - Added Black (code formatter) - line length 100
+   - Added Ruff (linter) - replaces flake8, isort, pyupgrade
+   - New versioning scheme: `<major>.<yyyymmdd>.<patch>`
+   - Current version: 1.20251028.0
+   - Created `VERSION` file and `docs/VERSIONING.md`
+   - Created `docs/DEVELOPMENT.md` with tooling guide
+
+4. **Database Schema**
+   - Added `thank_you_email_sent` to Match model
+   - Migration script: `dev-tools/migrate_add_thank_you_email.py`
+   - Auto-creates from models on fresh install
+
+### Previous Updates (2025-10-27)
 1. **Project Reorganization**
    - Moved docs to `docs/` directory
    - Moved dev tools to `dev-tools/` directory
@@ -295,6 +326,9 @@ sqlite3 data/secretsanta.db
 - Email validation with email-validator package
 - Office 365 SMTP uses SMTP_USERNAME as From address (no FROM_EMAIL variable)
 - Package discovery configured in pyproject.toml to avoid "Multiple top-level packages" error
+- **Code formatting**: Black with 100-char line length
+- **Linting**: Ruff (replaces flake8, isort, pyupgrade)
+- **Versioning**: `<major>.<yyyymmdd>.<patch>` format in `pyproject.toml` and `VERSION`
 
 ### Known Working Solutions:
 - **Button width issue**: Fixed with `width: auto !important;` in base.html
@@ -330,6 +364,7 @@ docker exec -it secretsantabot-web-1 python dev-tools/seed_database.py
 
 ## Dependencies (pyproject.toml)
 
+### Production Dependencies
 ```toml
 flask>=3.0.0              # Web framework
 flask-sqlalchemy>=3.1.1   # ORM
@@ -339,6 +374,14 @@ python-dotenv>=1.0.0      # Environment variables
 email-validator>=2.1.0    # Email validation
 gunicorn>=21.2.0          # Production WSGI server
 ```
+
+### Dev Dependencies
+```toml
+black>=24.0.0             # Code formatter
+ruff>=0.1.0               # Fast Python linter
+```
+
+Install with: `pip install -e ".[dev]"`
 
 ## Package Configuration
 
@@ -352,6 +395,59 @@ exclude = ["data*", "dev-tools*", "docs*"]
 ```
 
 This ensures only the `app` package is included when installing with `pip install -e .`
+
+## Code Quality Tools
+
+### Black (Code Formatter)
+- Line length: 100 characters
+- Target: Python 3.11+
+- Configuration in `pyproject.toml` under `[tool.black]`
+
+Usage:
+```bash
+# Format code
+black app/ dev-tools/
+
+# Check without formatting
+black --check app/ dev-tools/
+```
+
+### Ruff (Linter)
+- Fast all-in-one linter (replaces flake8, isort, pyupgrade)
+- Line length: 100 characters
+- Configuration in `pyproject.toml` under `[tool.ruff]`
+
+Usage:
+```bash
+# Lint and auto-fix
+ruff check app/ dev-tools/ --fix
+
+# Lint only
+ruff check app/ dev-tools/
+```
+
+### Pre-Commit Workflow
+Before committing code:
+1. Format: `black app/ dev-tools/`
+2. Lint: `ruff check app/ dev-tools/ --fix`
+3. Verify: `python -m py_compile app/*.py`
+
+## Versioning
+
+Format: `<major>.<yyyymmdd>.<patch>`
+
+Example: `1.20251028.0` = Major version 1, released October 28, 2025, patch 0
+
+### Version Files
+- `pyproject.toml` - Primary source (line 3)
+- `VERSION` - Plain text for scripts
+
+### When to Increment
+- **Patch** (third number): Bug fixes, docs, no breaking changes
+- **Date** (middle): New features, enhancements, reset patch to 0
+- **Major** (first): Breaking changes, architectural changes, reset date and patch
+
+See `docs/VERSIONING.md` for full details.
 
 ---
 
@@ -374,8 +470,7 @@ A full code and documentation review was completed on 2025-10-27. Results:
 
 ---
 
-**Last Updated**: 2025-10-27
+**Last Updated**: 2025-10-28
 **Project Status**: Production Ready
-**Current Version**: 0.1.0
+**Current Version**: 1.20251028.0
 **Last Full Review**: 2025-10-27 - PASSED
-- to memorize

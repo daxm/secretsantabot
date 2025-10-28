@@ -4,8 +4,10 @@ Helper script to generate password hashes for the Secret Santa Bot admin passwor
 Usage: python generate_password_hash.py
 """
 
-from werkzeug.security import generate_password_hash
 import getpass
+
+from werkzeug.security import generate_password_hash
+
 
 def main():
     print("Secret Santa Bot - Password Hash Generator")
@@ -22,15 +24,17 @@ def main():
         return
 
     if len(password) < 8:
-        print("\n⚠️  Warning: Password is less than 8 characters. Consider using a stronger password.")
+        print(
+            "\n⚠️  Warning: Password is less than 8 characters. Consider using a stronger password."
+        )
 
     # Generate hash
     password_hash = generate_password_hash(password)
 
     # Check for dollar signs (Docker Compose issue)
-    if '$' in password_hash:
+    if "$" in password_hash:
         # Escape dollar signs for Docker Compose
-        escaped_hash = password_hash.replace('$', '$$')
+        escaped_hash = password_hash.replace("$", "$$")
 
         print("\nPassword hash generated successfully!")
         print("\nIMPORTANT: The hash contains $ signs which need to be escaped for Docker Compose.")
@@ -51,6 +55,7 @@ def main():
         print("-" * 80)
 
     print("\nIMPORTANT: Keep this hash secure and never commit it to version control!")
+
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from app import db
 
 
@@ -10,24 +11,26 @@ class Participant(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship to match
-    giving_to = db.relationship('Match', foreign_keys='Match.giver_id', backref='giver', lazy=True)
-    receiving_from = db.relationship('Match', foreign_keys='Match.receiver_id', backref='receiver', lazy=True)
+    giving_to = db.relationship("Match", foreign_keys="Match.giver_id", backref="giver", lazy=True)
+    receiving_from = db.relationship(
+        "Match", foreign_keys="Match.receiver_id", backref="receiver", lazy=True
+    )
 
     def __repr__(self):
-        return f'<Participant {self.name}>'
+        return f"<Participant {self.name}>"
 
 
 class Match(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    giver_id = db.Column(db.Integer, db.ForeignKey('participant.id'), nullable=False)
-    receiver_id = db.Column(db.Integer, db.ForeignKey('participant.id'), nullable=False)
+    giver_id = db.Column(db.Integer, db.ForeignKey("participant.id"), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey("participant.id"), nullable=False)
     email_sent = db.Column(db.Boolean, default=False)
     revealed = db.Column(db.Boolean, default=False)
     thank_you_email_sent = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Match: {self.giver_id} -> {self.receiver_id}>'
+        return f"<Match: {self.giver_id} -> {self.receiver_id}>"
 
 
 class Settings(db.Model):
@@ -36,4 +39,4 @@ class Settings(db.Model):
     value = db.Column(db.String(200), nullable=True)
 
     def __repr__(self):
-        return f'<Settings {self.key}: {self.value}>'
+        return f"<Settings {self.key}: {self.value}>"

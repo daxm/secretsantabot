@@ -11,8 +11,8 @@ Usage (from project root):
     python dev-tools/seed_database.py
 """
 
-import sqlite3
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -21,9 +21,10 @@ SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Database path - try relative to script location first, then absolute
-DATABASE_PATH = os.getenv('DATABASE_URL', str(PROJECT_ROOT / 'data' / 'secretsanta.db'))
-if DATABASE_PATH.startswith('sqlite:///'):
-    DATABASE_PATH = DATABASE_PATH.replace('sqlite:///', '')
+DATABASE_PATH = os.getenv("DATABASE_URL", str(PROJECT_ROOT / "data" / "secretsanta.db"))
+if DATABASE_PATH.startswith("sqlite:///"):
+    DATABASE_PATH = DATABASE_PATH.replace("sqlite:///", "")
+
 
 def clear_database(conn):
     """Clear all data from the database."""
@@ -35,7 +36,8 @@ def clear_database(conn):
     conn.commit()
     print("✅ Database cleared")
 
-def seed_from_sql_file(conn, sql_file='seed_database.sql'):
+
+def seed_from_sql_file(conn, sql_file="seed_database.sql"):
     """Execute SQL commands from a file."""
     # Check if file exists in current directory, then in script directory
     sql_path = Path(sql_file)
@@ -45,10 +47,10 @@ def seed_from_sql_file(conn, sql_file='seed_database.sql'):
     if not sql_path.exists():
         print(f"❌ Error: {sql_file} not found!")
         print(f"   Looked in: {Path.cwd()} and {SCRIPT_DIR}")
-        print(f"   Create it or use --interactive mode")
+        print("   Create it or use --interactive mode")
         return False
 
-    with open(sql_path, 'r') as f:
+    with open(sql_path) as f:
         sql_script = f.read()
 
     cursor = conn.cursor()
@@ -60,6 +62,7 @@ def seed_from_sql_file(conn, sql_file='seed_database.sql'):
     except Exception as e:
         print(f"❌ Error executing SQL: {e}")
         return False
+
 
 def interactive_seed(conn):
     """Interactively add participants."""
@@ -86,7 +89,7 @@ def interactive_seed(conn):
             try:
                 cursor.execute(
                     "INSERT INTO participant (name, email, gift_preference) VALUES (?, ?, ?)",
-                    (name, email, gift_pref if gift_pref else None)
+                    (name, email, gift_pref if gift_pref else None),
                 )
                 conn.commit()
                 count += 1
@@ -101,6 +104,7 @@ def interactive_seed(conn):
         print(f"\n🎉 Added {count} participant(s) to database")
     else:
         print("\n❌ No participants added")
+
 
 def show_participants(conn):
     """Display all participants in the database."""
@@ -120,6 +124,7 @@ def show_participants(conn):
         print(f"      Gift Preferences: {gift_text}")
     print("=" * 80)
 
+
 def main():
     """Main function."""
     args = sys.argv[1:]
@@ -136,9 +141,9 @@ def main():
 
     try:
         # Parse arguments
-        clear_first = '--clear' in args or '-c' in args
-        interactive = '--interactive' in args or '-i' in args
-        show_help = '--help' in args or '-h' in args
+        clear_first = "--clear" in args or "-c" in args
+        interactive = "--interactive" in args or "-i" in args
+        show_help = "--help" in args or "-h" in args
 
         if show_help:
             print(__doc__)
@@ -147,7 +152,7 @@ def main():
         # Clear database if requested
         if clear_first:
             response = input("⚠️  Are you sure you want to clear the database? (yes/no): ")
-            if response.lower() in ['yes', 'y']:
+            if response.lower() in ["yes", "y"]:
                 clear_database(conn)
             else:
                 print("❌ Cancelled")
@@ -167,6 +172,7 @@ def main():
 
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()
