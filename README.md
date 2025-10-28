@@ -5,12 +5,14 @@ A simple Flask-based web application for organizing Secret Santa gift exchanges.
 ## Features
 
 - Participant registration with name, email, and gift preferences
+- **Three-phase workflow**: Registration Open → Matching Phase → Locked (after emails sent)
 - Automatic Secret Santa matching (single-cycle algorithm - everyone in one connected chain)
 - Email notifications to participants with their match
-- Admin dashboard with password protection
+- **Thank you email feature**: When gifts are revealed, receivers get email revealing their Secret Santa
+- Admin dashboard with password protection and phase tracking
 - Reveal page to track gift exchanges on the big day
 - SQLite database for simplicity (perfect for 10-15 people)
-- Dockerized for easy deployment
+- Dockerized for easy deployment with Gunicorn WSGI server
 - **Security**: CSRF protection, password hashing, input validation, rate limiting
 
 ## Project Structure
@@ -39,9 +41,13 @@ secretsantabot/
 │   ├── seed_database.sql   # SQL for test data
 │   └── README.md           # Dev tools documentation
 ├── docs/                   # Documentation
-│   ├── SECURITY.md         # Security documentation
-│   ├── CHANGELOG_SECURITY.md  # Security changes log
-│   └── QUICK_START.md      # Quick start guide
+│   ├── SECURITY.md         # Security features & setup guide
+│   ├── CHANGELOG_SECURITY.md  # Security improvements log
+│   ├── QUICK_START.md      # Quick setup guide
+│   ├── VERSIONING.md       # Version scheme documentation
+│   ├── DEVELOPMENT.md      # Dev tools and workflow guide
+│   ├── TROUBLESHOOTING.md  # Comprehensive troubleshooting guide
+│   └── FIX_UBUNTU_LOGIN.md # Quick fix for admin login issues
 └── README.md               # This file
 ```
 
@@ -118,31 +124,45 @@ flask run
 
 ### For Admin
 
+The app follows a three-phase workflow:
+- **Phase 1: Registration Open** - Participants can register
+- **Phase 2: Matching Phase** - Matches created, can add more participants and re-match
+- **Phase 3: Locked** - After emails sent, registration closes automatically
+
+Steps:
 1. Visit http://localhost:5000/admin/login
 2. Enter the admin password (from your .env file)
 3. View all registered participants
-4. Click "Create Matches" when everyone has registered
+4. Click "Create Matches" when everyone has registered (enters Matching Phase)
 5. Review the matches in the dashboard
-6. Click "Send Notification Emails" to notify everyone
-7. On reveal day, go to the "Reveal" page to track gift exchanges
+6. **Optional**: Add more participants and click "Re-create Matches" if needed
+7. Click "Send Notification Emails" to notify everyone (auto-locks registration)
+8. On reveal day, go to the "Reveal" page to track gift exchanges
 
 ### Reveal Day
 
 1. Navigate to the Reveal page from the admin dashboard
 2. As each person reveals their gift, click "Mark as Revealed"
-3. Track progress as the event unfolds!
+3. **Automatic thank you emails**: When marked as revealed, the receiver gets an email revealing who their Secret Santa was (with email address for easy thank you!)
+4. Track progress as the event unfolds!
 
 ## Database
 
 The app uses SQLite with three tables:
 
 - **Participant**: Stores participant info (name, email, gift preferences)
-- **Match**: Stores Secret Santa pairings (giver -> receiver)
+- **Match**: Stores Secret Santa pairings (giver → receiver)
+  - Fields: `giver_id`, `receiver_id`, `email_sent`, `revealed`, `thank_you_email_sent`
+  - Tracks notification status and gift reveal progress
 - **Settings**: Stores app settings (currently unused, reserved for future features)
 
 Database file is stored in `data/secretsanta.db`
 
 ## Troubleshooting
+
+**For comprehensive troubleshooting, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
+
+Quick solutions for common issues:
 
 ### Emails not sending?
 
@@ -154,10 +174,14 @@ Database file is stored in `data/secretsanta.db`
 
 ### Can't access admin dashboard?
 
+- **Most common issue:** Wrong dollar sign escaping in `.env`
+  - `.env` files should use **SINGLE `$`** signs (not `$$`)
+  - Only inline environment in `docker-compose.yml` needs `$$`
 - Verify ADMIN_PASSWORD_HASH is set correctly in `.env`
 - Regenerate the hash with `python dev-tools/generate_password_hash.py`
-- Remember to use the Docker-escaped version (with `$$`) if using Docker Compose
+- Check what container sees: `docker-compose exec web printenv ADMIN_PASSWORD_HASH`
 - Try restarting the Docker container after changing `.env`
+- **See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed solutions**
 
 ### Need to start over?
 

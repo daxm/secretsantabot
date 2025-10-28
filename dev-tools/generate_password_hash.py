@@ -31,28 +31,26 @@ def main():
     # Generate hash
     password_hash = generate_password_hash(password)
 
-    # Check for dollar signs (Docker Compose issue)
+    print("\nPassword hash generated successfully!")
+    print("\nAdd this line to your .env file:")
+    print("-" * 80)
+    print(f"ADMIN_PASSWORD_HASH={password_hash}")
+    print("-" * 80)
+
+    # Check for dollar signs and provide Docker Compose guidance
     if "$" in password_hash:
-        # Escape dollar signs for Docker Compose
         escaped_hash = password_hash.replace("$", "$$")
-
-        print("\nPassword hash generated successfully!")
-        print("\nIMPORTANT: The hash contains $ signs which need to be escaped for Docker Compose.")
-        print("\nAdd this line to your .env file (with $$ escaped):")
-        print("-" * 80)
-        print(f"ADMIN_PASSWORD_HASH={escaped_hash}")
-        print("-" * 80)
-
-        print("\nNOTE: If you're NOT using Docker, use this version instead (single $):")
-        print("-" * 80)
-        print(f"ADMIN_PASSWORD_HASH={password_hash}")
-        print("-" * 80)
-    else:
-        print("\nPassword hash generated successfully!")
-        print("\nAdd this line to your .env file:")
-        print("-" * 80)
-        print(f"ADMIN_PASSWORD_HASH={password_hash}")
-        print("-" * 80)
+        print("\n" + "=" * 80)
+        print("IMPORTANT: Dollar Sign Handling")
+        print("=" * 80)
+        print("\n1. For .env files (loaded via env_file: in docker-compose.yml):")
+        print("   → Use SINGLE $ signs (shown above)")
+        print("\n2. For inline environment in docker-compose.yml:")
+        print("   → Use DOUBLE $$ signs:")
+        print(f"   ADMIN_PASSWORD_HASH={escaped_hash}")
+        print("\n3. For running Python scripts directly (not in Docker):")
+        print("   → Use SINGLE $ signs (shown above)")
+        print("=" * 80)
 
     print("\nIMPORTANT: Keep this hash secure and never commit it to version control!")
 

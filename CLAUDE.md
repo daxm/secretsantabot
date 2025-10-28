@@ -56,7 +56,9 @@ secretsantabot/
 │   ├── CHANGELOG_SECURITY.md    # Security improvements log
 │   ├── QUICK_START.md           # Quick setup guide
 │   ├── VERSIONING.md            # Version scheme documentation
-│   └── DEVELOPMENT.md           # Dev tools and workflow guide
+│   ├── DEVELOPMENT.md           # Dev tools and workflow guide
+│   ├── TROUBLESHOOTING.md       # Common issues and solutions
+│   └── FIX_UBUNTU_LOGIN.md      # Quick fix guide for login issues
 │
 ├── .env                         # Environment variables (NOT in git)
 ├── .env.example                 # Template for .env
@@ -157,7 +159,9 @@ docker-compose up --build
 
 ### Production Deployment
 - Uses Gunicorn WSGI server (not Flask dev server)
-- 2 workers, 120-second timeout
+- 2 workers, 300-second timeout (5 minutes)
+- Graceful timeout: 30 seconds
+- Keep-alive: 5 seconds (reduces connection overhead)
 - Set SESSION_COOKIE_SECURE=True for HTTPS
 - Ensure SMTP AUTH is enabled in Microsoft 365 admin center
 
@@ -202,30 +206,33 @@ sqlite3 data/secretsanta.db
 
 ## Troubleshooting
 
+**See `docs/TROUBLESHOOTING.md` for comprehensive troubleshooting guide.**
+
+Quick reference:
+
 ### Admin Login Issues
-- Check ADMIN_PASSWORD_HASH is set in .env (not ADMIN_PASSWORD)
-- Hash should start with `scrypt:32768:8:1$`
+- **Most common:** Wrong dollar sign escaping in `.env` (use single `$`, not `$$`)
+- Run: `docker-compose exec web printenv ADMIN_PASSWORD_HASH` to verify
+- See full guide: `docs/TROUBLESHOOTING.md` → "Admin Login Issues"
+- Hash should start with `scrypt:32768:8:1$` (single dollar sign)
 - Rate limiting: max 5 attempts per minute
 
 ### Email Issues
 - SMTP_USERNAME must be full Office 365 email address
 - SMTP AUTH must be enabled in Microsoft 365 admin center
-- FROM_EMAIL is no longer used (was causing auth failures)
+- Check container logs: `docker-compose logs -f`
 
 ### CSRF Token Issues
-- Clear browser cookies
-- Ensure templates have `{{ csrf_token() }}`
-- Rebuild Docker container after updates
+- Clear browser cookies and hard refresh
+- Rebuild: `docker-compose down && docker-compose up --build`
 
 ### Database Location
 - In Docker: `/app/data/secretsanta.db`
 - Local: `data/secretsanta.db`
-- Seeding works from both project root and dev-tools directory
 
-### pip install Issues
-- If `pip install -e .` fails with "Multiple top-level packages discovered"
-- This is fixed in pyproject.toml with package discovery settings
-- The config explicitly includes only `app*` and excludes `data*`, `dev-tools*`, `docs*`
+### Container Issues
+- Rebuild from scratch: `docker-compose down -v && docker-compose build --no-cache && docker-compose up -d`
+- Check logs: `docker-compose logs -f web`
 
 ## Project Status
 
@@ -237,6 +244,21 @@ sqlite3 data/secretsanta.db
 ## Recent Changes
 
 ### Latest Updates (2025-10-28)
+
+**UX & Stability Improvements:**
+- **Auto-focus password field** on admin login page (no more clicking to start typing)
+- **Fixed Gunicorn worker timeouts** - Increased timeout to 300s, added graceful-timeout and keep-alive settings
+- Settings prevent occasional "[CRITICAL] WORKER TIMEOUT" errors in logs
+
+**CRITICAL BUG FIX - Admin Login Issue:**
+- **Fixed incorrect password hash escaping guidance** that prevented admin login
+- `.env` files must use **SINGLE `$`** signs (not `$$`)
+- Only `docker-compose.yml` inline environment needs `$$`
+- Updated `generate_password_hash.py` with correct instructions
+- Updated `.env.example` with correct guidance
+- Added `docs/TROUBLESHOOTING.md` with comprehensive troubleshooting guide
+- **If you can't log in to admin, see `docs/TROUBLESHOOTING.md`**
+
 1. **Three-Phase Workflow**
    - Registration Open → Matching Phase → Locked (after emails sent)
    - Can add participants and re-match until emails are sent
@@ -253,7 +275,7 @@ sqlite3 data/secretsanta.db
    - Added Black (code formatter) - line length 100
    - Added Ruff (linter) - replaces flake8, isort, pyupgrade
    - New versioning scheme: `<major>.<yyyymmdd>.<patch>`
-   - Current version: 1.20251028.0
+   - Current version: 1.20251028.1
    - Created `VERSION` file and `docs/VERSIONING.md`
    - Created `docs/DEVELOPMENT.md` with tooling guide
 
@@ -293,10 +315,11 @@ sqlite3 data/secretsanta.db
    - Fixed pyproject.toml to properly exclude non-package directories
    - Added explicit package discovery settings
 
-6. **Password Hash Dollar Sign Issue**
-   - Updated generate_password_hash.py to automatically escape $ signs
-   - Script now outputs both Docker ($$) and non-Docker ($) versions
-   - Added documentation about this Docker Compose requirement
+6. **Password Hash Dollar Sign Issue** (CORRECTED 2025-10-28)
+   - Updated generate_password_hash.py with correct guidance
+   - .env files use SINGLE $ (env_file: doesn't interpret $$)
+   - docker-compose.yml inline environment uses DOUBLE $$
+   - Fixed incorrect documentation that caused login failures
 
 7. **UI/UX Improvements**
    - Added padding to main container (fixed cramped layout)
@@ -316,7 +339,10 @@ sqlite3 data/secretsanta.db
 2. **CSRF tokens on ALL POST forms** - Security requirement, all 7 forms have them
 3. **Password hashing** - Always use ADMIN_PASSWORD_HASH (hashed), never plain text
 4. **Email sanitization** - Prevents header injection (removes newlines in names/preferences)
-5. **Dollar sign escaping** - Docker Compose requires $$ in .env (generate_password_hash.py handles this)
+5. **Dollar sign in password hashes**:
+   - `.env` files: Use SINGLE `$` (env_file: directive doesn't escape `$$`)
+   - `docker-compose.yml` inline: Use DOUBLE `$$` (Docker Compose variable interpolation)
+   - Running locally: Use SINGLE `$`
 
 ### Project Conventions:
 - All documentation in `docs/` directory (not root)
@@ -472,5 +498,5 @@ A full code and documentation review was completed on 2025-10-27. Results:
 
 **Last Updated**: 2025-10-28
 **Project Status**: Production Ready
-**Current Version**: 1.20251028.0
+**Current Version**: 1.20251028.1
 **Last Full Review**: 2025-10-27 - PASSED

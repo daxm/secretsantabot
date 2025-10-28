@@ -1,6 +1,6 @@
 [project]
 name = "secretsantabot"
-version = "1.20251028.0"
+version = "1.20251028.1"
 description = "A Secret Santa gift exchange bot with Flask"
 requires-python = ">=3.11"
 dependencies = [
