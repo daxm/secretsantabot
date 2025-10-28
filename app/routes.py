@@ -32,6 +32,12 @@ def index():
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # Check if registration is locked (emails have been sent)
+        any_emails_sent = Match.query.filter_by(email_sent=True).first()
+        if any_emails_sent:
+            flash('Registration is closed - emails have already been sent!', 'error')
+            return redirect(url_for('main.index'))
+
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         gift_preference = request.form.get('gift_preference', '').strip()
@@ -81,7 +87,11 @@ def register():
         flash('Registration successful! You will receive an email with your Secret Santa match.', 'success')
         return redirect(url_for('main.index'))
 
-    return render_template('register.html')
+    # Check if registration is locked for GET requests too
+    any_emails_sent = Match.query.filter_by(email_sent=True).first()
+    registration_locked = any_emails_sent is not None
+
+    return render_template('register.html', registration_locked=registration_locked)
 
 
 @main.route('/admin/login', methods=['GET', 'POST'])
@@ -120,21 +130,48 @@ def admin_dashboard():
     participants = Participant.query.all()
     matches = Match.query.all()
     matches_created = len(matches) > 0
+    any_emails_sent = Match.query.filter_by(email_sent=True).first() is not None
+
+    # Determine current phase
+    if any_emails_sent:
+        phase = 'locked'
+        phase_message = 'Locked - Emails have been sent'
+        phase_color = 'red'
+    elif matches_created:
+        phase = 'matching'
+        phase_message = 'Matching Phase - You can add participants and re-match'
+        phase_color = 'orange'
+    else:
+        phase = 'registration'
+        phase_message = 'Registration Open'
+        phase_color = 'green'
 
     return render_template('admin_dashboard.html',
                          participants=participants,
                          matches=matches,
-                         matches_created=matches_created)
+                         matches_created=matches_created,
+                         any_emails_sent=any_emails_sent,
+                         phase=phase,
+                         phase_message=phase_message,
+                         phase_color=phase_color)
 
 
 @main.route('/admin/create-matches', methods=['POST'])
 @admin_required
 def create_matches():
-    # Check if matches already exist
+    # Check if emails have been sent (prevents re-matching after emails sent)
+    any_emails_sent = Match.query.filter_by(email_sent=True).first()
+    if any_emails_sent:
+        flash('Cannot recreate matches - emails have already been sent!', 'error')
+        return redirect(url_for('main.admin_dashboard'))
+
+    # Clear existing matches if any exist (allow re-matching before emails sent)
     existing_matches = Match.query.first()
     if existing_matches:
-        flash('Matches have already been created!', 'error')
-        return redirect(url_for('main.admin_dashboard'))
+        Match.query.delete()
+        db.session.commit()
+        logger.info('Admin cleared previous matches to create new ones')
+        flash('Previous matches cleared. Creating new matches...', 'info')
 
     participants = Participant.query.all()
 
@@ -175,6 +212,25 @@ def create_matches():
 
     db.session.commit()
     flash(f'Successfully created {len(participants)} Secret Santa matches in one connected chain!', 'success')
+    return redirect(url_for('main.admin_dashboard'))
+
+
+@main.route('/admin/clear-matches', methods=['POST'])
+@admin_required
+def clear_matches():
+    # Check if any emails have been sent
+    any_emails_sent = Match.query.filter_by(email_sent=True).first()
+    if any_emails_sent:
+        flash('Cannot clear matches - emails have already been sent!', 'error')
+        return redirect(url_for('main.admin_dashboard'))
+
+    # Delete all matches
+    match_count = Match.query.count()
+    Match.query.delete()
+    db.session.commit()
+
+    logger.info('Admin cleared all matches')
+    flash(f'Cleared {match_count} matches. You can now create new matches.', 'success')
     return redirect(url_for('main.admin_dashboard'))
 
 
@@ -288,7 +344,57 @@ def reveal():
 @admin_required
 def toggle_reveal(match_id):
     match = Match.query.get_or_404(match_id)
+    was_revealed = match.revealed
     match.revealed = not match.revealed
+
+    # If marking as revealed (and not already sent thank you email), send email to receiver
+    if match.revealed and not was_revealed and not match.thank_you_email_sent:
+        try:
+            receiver = match.receiver
+            giver = match.giver
+
+            # Sanitize names to prevent header injection
+            receiver_name = ' '.join(receiver.name.split())
+            giver_name = ' '.join(giver.name.split())
+
+            # Create thank you reminder email
+            msg = MIMEMultipart()
+            msg['From'] = current_app.config['SMTP_USERNAME']
+            msg['To'] = receiver.email
+            msg['Subject'] = 'Your Secret Santa is Revealed!'
+
+            body = f"""Hello {receiver_name}!
+
+The Secret Santa reveal has happened! Your Secret Santa was: {giver_name}
+
+We hope you enjoyed your gift! Please take a moment to send a thank you message to {giver_name} at {giver.email}.
+
+Happy Holidays!
+
+Best regards,
+Secret Santa Bot
+"""
+
+            msg.attach(MIMEText(body, 'plain'))
+
+            # Send email
+            with smtplib.SMTP(current_app.config['SMTP_SERVER'], current_app.config['SMTP_PORT']) as server:
+                server.starttls()
+                server.login(current_app.config['SMTP_USERNAME'], current_app.config['SMTP_PASSWORD'])
+                server.send_message(msg)
+
+            # Mark as sent
+            match.thank_you_email_sent = True
+            logger.info(f'Sent thank you reminder to {receiver.email} revealing {giver.email}')
+            flash(f'Marked as revealed and sent thank you reminder to {receiver.name}!', 'success')
+
+        except smtplib.SMTPException as e:
+            logger.error(f"Failed to send thank you email to {receiver.email}: {e}")
+            flash(f'Marked as revealed but failed to send email to {receiver.name}. Error: {str(e)}', 'warning')
+        except Exception as e:
+            logger.error(f"Unexpected error sending thank you email to {receiver.email}: {e}")
+            flash(f'Marked as revealed but failed to send email to {receiver.name}.', 'warning')
+
     db.session.commit()
     return redirect(url_for('main.reveal'))
 
@@ -298,14 +404,21 @@ def toggle_reveal(match_id):
 def delete_participant(participant_id):
     participant = Participant.query.get_or_404(participant_id)
 
-    # Check if matches exist
-    if Match.query.first():
-        flash('Cannot delete participants after matches have been created!', 'error')
+    # Check if emails have been sent
+    any_emails_sent = Match.query.filter_by(email_sent=True).first()
+    if any_emails_sent:
+        flash('Cannot delete participants - emails have already been sent!', 'error')
         return redirect(url_for('main.admin_dashboard'))
+
+    # Clear any matches involving this participant
+    Match.query.filter((Match.giver_id == participant_id) |
+                       (Match.receiver_id == participant_id)).delete()
 
     db.session.delete(participant)
     db.session.commit()
-    flash(f'Deleted participant: {participant.name}', 'success')
+
+    logger.info(f'Admin deleted participant: {participant.email}')
+    flash(f'Deleted participant: {participant.name}. Any matches involving this participant have been cleared.', 'success')
     return redirect(url_for('main.admin_dashboard'))
 
 

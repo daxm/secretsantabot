@@ -5,6 +5,14 @@
 {% block content %}
 <h1>Register for Secret Santa</h1>
 
+{% if registration_locked %}
+<article style="background-color: #ffe6e6; border: 2px solid #ff4444;">
+    <h2 style="color: #cc0000;">Registration Closed</h2>
+    <p>Sorry, registration is now closed. Emails have already been sent to all participants.</p>
+    <p>Please contact the organizer if you have any questions.</p>
+    <a href="{{ url_for('main.index') }}" class="btn">Back to Home</a>
+</article>
+{% else %}
 <form method="POST" action="{{ url_for('main.register') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="form-group">
@@ -25,4 +33,5 @@
 
     <button type="submit" class="btn">Register</button>
 </form>
+{% endif %}
 {% endblock %}

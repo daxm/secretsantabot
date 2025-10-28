@@ -23,6 +23,7 @@ class Match(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('participant.id'), nullable=False)
     email_sent = db.Column(db.Boolean, default=False)
     revealed = db.Column(db.Boolean, default=False)
+    thank_you_email_sent = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
